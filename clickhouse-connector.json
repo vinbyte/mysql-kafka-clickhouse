@@ -1,0 +1,33 @@
+{
+  "name": "clickhouse-sink",
+  "config": {
+    "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+    "tasks.max": "1",
+    "topics": "test.employees.departments",
+    "topic2TableMap": "test.employees.departments=departments",
+    "hostname": "clickhouse",
+    "port": "8123",
+    "database": "default",
+    "username": "root",
+    "password": "root",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "clickhouse.table": "departments",
+    "clickhouse.insert.batch.size": "1000",
+    "clickhouse.retry.strategy": "exponential",
+    "clickhouse.retry.max.attempts": "5",
+    "clickhouse.retry.exponential.backoff.base": "2",
+    "clickhouse.retry.exponential.backoff.initial.delay.ms": "1000",
+    "exactlyOnce": "false",
+    "schemas.enable": false,
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+    "errors.deadletterqueue.topic.name": "dlq-clickhouse",
+    "errors.deadletterqueue.context.headers.enable": "true",
+    "errors.deadletterqueue.topic.replication.factor": "1",
+    "consumer.max.poll.records": 5000,
+    "consumer.max.partition.fetch.bytes": 5242880
+  }
+}

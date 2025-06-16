@@ -1,0 +1,30 @@
+{
+  "name": "mariadb-source",
+  "config": {
+    "connector.class": "io.debezium.connector.mariadb.MariaDbConnector",
+    "database.hostname": "mariadb",
+    "database.port": "3306",
+    "database.user": "debezium",
+    "database.password": "dbz",
+    "database.server.id": "184054",
+    "database.server.name": "employees-server",
+    "database.include.list": "employees",
+    "table.include.list": "employees.departments",
+    "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
+    "schema.history.internal.kafka.topic": "schema-changes.employees",
+    "include.schema.changes": "false",
+    "snapshot.mode": "initial",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "key.converter.schemas.enable": false,
+    "value.converter.schemas.enable": false,
+    "topic.prefix": "test",
+    "database.history.kafka.recovery.attempt": "true",
+    "transforms": "unwrap,cast",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.delete.tombstone.handling.mode": "rewrite",
+    "transforms.unwrap.add.fields": "op,table,lsn,source.ts_ms",
+    "transforms.cast.type": "org.apache.kafka.connect.transforms.Cast$Value",
+    "transforms.cast.spec": "__deleted:boolean"
+  }
+}

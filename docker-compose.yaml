@@ -1,0 +1,134 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.9.2
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes: 
+      - ./data/zoo/data:/var/lib/zookeeper/data
+      - ./data/zoo/log:/var/lib/zookeeper/log
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.9.2
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: nc -z localhost 9092 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./data/kafka:/var/lib/kafka/data
+
+  connect:
+    image: confluentinc/cp-kafka-connect-base:7.9.2
+    container_name: kafka_connect
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: "kafka-connect-group"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "connect"
+      CONNECT_CONFIG_STORAGE_TOPIC: "connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "connect-status"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: false
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: false
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+      # JAVA_TOOL_OPTIONS: "-javaagent:/kafka/libs/jolokia-agent-jvm-2.2.9-javaagent.jar=port=8778,host=0.0.0.0"
+      # KAFKA_HEAP_OPTS: "-Xmx6g"
+    healthcheck:
+      test: nc -z localhost 8083 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+    volumes:
+      - ./kafka-connect-plugins:/usr/share/confluent-hub-components
+      # - ./kafka-connect-libs:/usr/share/java/kafka
+    # command:
+    #   - bash
+    #   - -c
+    #   - |
+    #     confluent-hub install --no-prompt neo4j/kafka-connect-neo4j
+    #     /etc/confluent/docker/run
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.2
+    container_name: clickhouse_server
+    environment:
+      - CLICKHOUSE_USER=root
+      - CLICKHOUSE_PASSWORD=root
+      - CLICKHOUSE_DB=default
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    depends_on:
+      connect:
+        condition: service_healthy
+    volumes:
+      - ./data/clickhouse:/var/lib/clickhouse
+      - ./ch-user:/etc/clickhouse-server/users.d
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  mariadb:
+    image: mariadb:10.11
+    container_name: mariadb_server
+    environment:
+      MYSQL_ROOT_PASSWORD: 
+      MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: true
+      MYSQL_DATABASE: employees
+      MYSQL_USER: debezium
+      MYSQL_PASSWORD: dbz
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: ["--log-bin=mysql-bin", "--server-id=223344", "--binlog-format=row", "--binlog-row-image=full"]
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+volumes:
+  mariadb-data:
